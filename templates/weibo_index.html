@@ -4,37 +4,109 @@
     <meta charset="UTF-8">
     <title>weibo</title>
     <style>
-        .comment {
-            border: 1px red solid;
+        input[type=text], select {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
         }
+
+        input[type=submit] {
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            padding: 14px 20px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        input[type=submit]:hover {
+            background-color: #45a049;
+        }
+
+        div {
+            border-radius: 5px;
+            background-color: #f2f2f2;
+            padding: 20px;
+        }
+
+        .comment {
+            border: 1px hsl(187, 100%, 42%) solid;
+            padding: 10px;
+            margin: 10px;
+        }
+
+        .line_01 {
+            padding: 0 20px 0;
+            margin: 20px 0;
+            line-height: 1px;
+            border-left: 500px solid #ddd;
+            border-right: 500px solid #ddd;
+            text-align: center;
+        }
+
+        a:link {
+            text-decoration: none;
+        }
+
+        /* unvisited link */
+        a:visited {
+            text-decoration: none;
+        }
+
+        /* visited link */
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* mouse over link */
+        a:active {
+            text-decoration: underline;
+        }
+
+        /* selected link */
     </style>
 </head>
 <body>
-<form action="/weibo/add" method="post">
-    <input name="content">
-    <br>
-    <button type="submit">发表新微博</button>
-</form>
+<div>
+    <form action="/weibo/add" method="post">
+        <input type="text" name="content">
+        <br>
+        <input type="submit" value="发表新微博">
+    </form>
+</div>
+
 
 {% for w in weibos %}
     <p>
-        {{ w.content }} from {{ user.username }}
+    <div>
+        <h2>{{ w.content }}</h2>
+        <h3> 微博作者： {{ user.username }}</h3>
         <a href="/weibo/delete?id={{ w.id }}">删除</a>
         <a href="/weibo/edit?id={{ w.id }}">修改</a>
         {% for c in w.comments() %}
             <div class="comment">
-                {{ c.user().username }} : {{ c.content }}
+                评论来自：“ {{ c.user().username }} ” ，评论内容：“ {{ c.content }} ”
                 <a href="/comment/delete?id={{ c.id }}">删除</a>
                 <a href="/comment/edit?id={{ c.id }}">修改</a>
             </div>
         {% endfor %}
-    <form action="/comment/add" method="post">
-        <input type="hidden" name="weibo_id" value="{{ w.id }}">
-        <input name="content">
-        <br>
-        <button type="submit">添加评论</button>
-    </form>
+    </div>
+    <div>
+        <form action="/comment/add" method="post">
+            <input type="hidden" name="weibo_id" value="{{ w.id }}">
+            <input type="text" name="content">
+            <br>
+            <input type="submit" value="添加评论" style="background-color: chocolate">
+        </form>
+    </div>
     </p>
+    <div class="line_01">我是分隔线</div>
 {% endfor %}
 </body>
 </html>
