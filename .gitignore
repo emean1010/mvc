@@ -1,0 +1,5 @@
+.idea
+log.mvc.txt
+*.pyc
+.DS_Store
+README.md
