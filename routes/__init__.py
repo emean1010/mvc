@@ -1,11 +1,6 @@
 import os.path
-from functools import wraps
+from urllib.parse import quote
 
-from flask import (
-    request,
-    redirect,
-    jsonify,
-)
 from jinja2 import (
     Environment,
     FileSystemLoader,
@@ -15,23 +10,6 @@ from models.session import Session
 from models.user import User
 from utils import log
 
-import random
-import json
-from models.weibo import Weibo
-from models.comment import Comment
-
-
-def random_string():
-    """
-    生成一个随机的字符串
-    """
-    seed = 'bdjsdlkgjsklgelgjelgjsegker234252542342525g'
-    s = ''
-    for i in range(16):
-        # 这里 len(seed) - 2 是因为我懒得去翻文档来确定边界了
-        random_index = random.randint(0, len(seed) - 2)
-        s += seed[random_index]
-    return s
 
 
 def initialized_environment():
@@ -56,17 +34,34 @@ class MvcTemplate:
         return template.render(*args, **kwargs)
 
 
-def current_user():
+# parent = os.path.dirname(os.path.dirname(__file__))
+# path = os.path.join(parent, 'templates')
+# # 创建一个加载器, jinja2 会从这个目录中加载模板
+# loader = FileSystemLoader(path)
+# # 用加载器创建一个环境, 有了它才能读取模板文件
+# e = Environment(loader=loader)
+
+# e = initialized_environment()
+
+
+def current_user(request):
     if 'session_id' in request.cookies:
         session_id = request.cookies['session_id']
-        s = Session.find_by(session_id=session_id)
+        s = Session.one(session_id=session_id)
         if s is None or s.expired():
+            log('当前用户：游客')
             return User.guest()
         else:
             user_id = s.user_id
-            u = User.find_by(id=user_id)
-            return u
+            u = User.one(id=user_id)
+            if u is None:
+                log('当前用户：游客')
+                return User.guest()
+            else:
+                log('当前用户：<{}>'.format(u.username))
+                return u
     else:
+        log('当前用户：游客')
         return User.guest()
 
 
@@ -95,104 +90,61 @@ def formatted_header(headers, code=200):
     return header
 
 
+def redirect(url, session_id=None):
+    """
+    浏览器在收到 302 响应的时候
+    会自动在 HTTP header 里面找 Location 字段并获取一个 url
+    然后自动请求新的 url
+    """
+
+    h = {
+        'Location': url,
+    }
+    if isinstance(session_id, str):
+        h.update({
+            'Set-Cookie': 'session_id={}; path=/'.format(session_id)
+        })
+    # 增加 Location 字段并生成 HTTP 响应返回
+    # 注意, 没有 HTTP body 部分
+    # HTTP 1.1 302 ok
+    # Location: /todo
+    #
+    response = formatted_header(h, 302) + '\r\n'
+    return response.encode()
+
+
+def html_response(filename, **kwargs):
+    body = MvcTemplate.render(filename, **kwargs)
+
+    # 下面 3 行可以改写为一条函数, 还把 headers 也放进函数中
+    headers = {
+        'Content-Type': 'text/html',
+    }
+    header = formatted_header(headers)
+    r = header + '\r\n' + body
+    return r.encode()
+
+
 def login_required(route_function):
     """
     这个函数看起来非常绕，所以你不懂也没关系
     就直接拿来复制粘贴就好了
     """
 
-    @wraps(route_function)
-    def f():
+    def f(request):
         log('login_required')
-        u = current_user()
+        u = current_user(request)
         if u.is_guest():
-            log('游客用户')
+            log('游客用户需要登陆')
             return redirect('/user/login/view')
         else:
-            log('登录用户', route_function)
-            return route_function()
+            log('已经登录用户', route_function)
+            return route_function(request)
 
     return f
 
 
-def same_user_required(route_function):
-    """
-    这个函数看起来非常绕，所以你不懂也没关系
-    就直接拿来复制粘贴就好了
-    """
-
-    @wraps(route_function)
-    def f():
-        log('same_user_required')
-        u = current_user()
-        if 'id' in request.args:
-            weibo_id = request.args['id']
-        else:
-            weibo_id = request.form['id']
-        w = Weibo.find_by(id=int(weibo_id))
-
-        if w.user_id == u.id:
-            return route_function()
-        else:
-            return redirect('/weibo/index')
-
-    return f
-
-
-# 微博的删改请求带有微博的id，验证这个id
-def weibo_owner_required(route_function):
-
-    @wraps(route_function)
-    def f():
-        log('weibo_owner_required')
-        u = current_user()
-        data = []
-        if request.method == 'GET':
-            data = request.args
-        else:
-            data: dict = request.json
-        log('要验证的请求', data)
-        weibo_id = int(data['id'])
-        w = Weibo.find_by(id=weibo_id)
-        if u.id == w.user_id:
-            log('这是微博作者')
-            return route_function()
-        else:
-            log('不是微博作者')
-            d = dict(
-                message="不是微博作者没有权限"
-            )
-            return jsonify(d)
-
-    return f
-
-
-# 评论的删改请求带有评论内容和微博id，分别验证微博用户id和评论用户id
-def comment_owner_required(route_function):
-
-    @wraps(route_function)
-    def f():
-        log('comment_owner_required')
-        u = current_user()
-        data = []
-        if request.method == 'GET':
-            data = request.args
-        else:
-            data: dict = request.json
-        log('要验证的请求', data)
-        comment_id = int(data['id'])
-        c = Comment.find_by(id=comment_id)
-        log('验证comment内容', c)
-        weibo_id = c.weibo_id
-        w = Weibo.find_by(id=weibo_id)
-        if u.id == c.user_id or u.id == w.user_id:
-            log('这是评论或者微博作者', u.id, c.user_id, w.user_id)
-            return route_function()
-        else:
-            log('不是评论或者微博作者', u.id, c.user_id, w.user_id)
-            d = dict(
-                message="不是评论或者微博作者没有权限"
-            )
-            return jsonify(d)
-
-    return f
+# @login_required
+# def f():
+#     pass
+# '/f': login_required(f)

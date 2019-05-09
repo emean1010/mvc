@@ -1,11 +1,21 @@
-from models import Model
+from models.base_model import SQLModel
 from models.comment import Comment
+from utils import log
 
 
-class Weibo(Model):
+class Weibo(SQLModel):
     """
     微博类
     """
+
+    sql_create = '''
+        CREATE TABLE `weibo` (
+            `id` INT NOT NULL AUTO_INCREMENT,
+            `user_id` INT NOT NULL,
+            `content` VARCHAR(64) NOT NULL,
+            PRIMARY KEY (`id`)
+    )'''
+
     def __init__(self, form):
         super().__init__(form)
         self.content = form.get('content', '')
@@ -14,10 +24,22 @@ class Weibo(Model):
 
     @classmethod
     def add(cls, form, user_id):
-        w = Weibo(form)
+        w = cls(form)
         w.user_id = user_id
-        w.save()
+        _id = cls.insert(w.__dict__)
+        w.id = _id
+        return w
 
     def comments(self):
-        cs = Comment.find_all(weibo_id=self.id)
+        cs = Comment.all(weibo_id=self.id)
         return cs
+
+    @classmethod
+    def comment_add(cls, form, user_id):
+        weibo_id = int(form['weibo_id'])
+        c = Comment(form)
+        c.user_id = user_id
+        c.weibo_id = weibo_id
+        c.insert(c.__dict__)
+
+        log('comment add', c, user_id, form)
