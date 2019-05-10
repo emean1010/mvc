@@ -2,7 +2,7 @@
 基于 Socket 和 HTTP 的 Web MVC 框架，实现 SQL ORM 功能
 
 ## 使用
-[![](https://img.shields.io/badge/PyMySql-0.7.4-green.svg)](https://github.com/emean1010/mvc)
+[![](https://img.shields.io/badge/PyMySQL-0.7.4-green.svg)](https://github.com/emean1010/mvc)
 [![](https://img.shields.io/badge/Socket-service-green.svg)](https://github.com/emean1010/mvc)
 
 ## 功能 ##
